@@ -21,28 +21,33 @@ func logError(err error) {
 	writer.Flush()
 }
 
-func readFile(fileName string) (map[string]int, error) {
+func readFile(fileName string) ([]string, error) {
 	file, err := os.Open(fileName)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("can't os.Open on readFile: %w", err)
 	}
 	defer file.Close()
 
-	lineCount := make(map[string]int)
+	var lines []string
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		lineCount[line]++
+		lines = append(lines, line)
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("can't scan lines on readFile: %w", err)
 	}
 
-	return lineCount, nil
+	return lines, nil
 }
 
-func processLines(lineCount map[string]int) []string {
+func processLines(lines []string) ([]string, error) {
+	lineCount := make(map[string]int)
+	for _, line := range lines {
+		lineCount[line]++
+	}
+
 	uniqueLines := make([]string, 0)
 	for line, count := range lineCount {
 		if count == 1 {
@@ -50,22 +55,25 @@ func processLines(lineCount map[string]int) []string {
 		}
 	}
 	sort.Strings(uniqueLines)
-	return uniqueLines
+	return uniqueLines, nil
 }
 
 func writeFile(fileName string, uniqueLines []string) error {
 	outputFile, err := os.Create(fileName)
 	if err != nil {
-		return err
+		return fmt.Errorf("can't os.Create on writeFile: %w", err)
 	}
 	defer outputFile.Close()
 
+	var outputBuilder strings.Builder
+
 	for _, line := range uniqueLines {
 		byteCount := len([]byte(line))
-		_, err := fmt.Fprintf(outputFile, "%s - %d байт\n", line, byteCount)
-		if err != nil {
-			return err
-		}
+		outputBuilder.WriteString(fmt.Sprintf("%s - %d байт\n", line, byteCount))
+	}
+
+	if _, err := outputFile.WriteString(outputBuilder.String()); err != nil {
+		return fmt.Errorf("can't write to file on writeFile: %w", err)
 	}
 
 	return nil
@@ -76,24 +84,28 @@ func main() {
 	var inputFileName string
 	fmt.Scanln(&inputFileName)
 
-	lineCount, err := readFile(inputFileName)
+	lines, err := readFile(inputFileName)
 	if err != nil {
 		if os.IsNotExist(err) {
-			logError(fmt.Errorf("Файл %s не существует.", inputFileName))
+			logError(fmt.Errorf("Файл %s не существует: %w", inputFileName, err))
 		} else {
-			logError(fmt.Errorf("Ошибка при открытии файла %s: %v", inputFileName, err))
+			logError(fmt.Errorf("Ошибка при открытии файла %s: %w", inputFileName, err))
 		}
 		return
 	}
 
-	uniqueLines := processLines(lineCount)
+	uniqueLines, err := processLines(lines)
+	if err != nil {
+		logError(fmt.Errorf("Ошибка при обработке строк: %w", err))
+		return
+	}
 
 	fmt.Print("Введите имя выходного файла: ")
 	var outputFileName string
 	fmt.Scanln(&outputFileName)
 
 	if err := writeFile(outputFileName, uniqueLines); err != nil {
-		logError(fmt.Errorf("Ошибка при записи в файл %s: %v", outputFileName, err))
+		logError(fmt.Errorf("Ошибка при записи в файл %s: %w", outputFileName, err))
 		return
 	}
 
