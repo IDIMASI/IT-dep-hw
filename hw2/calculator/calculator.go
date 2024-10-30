@@ -4,7 +4,7 @@ import (
 	"errors"
 	"log"
 
-	"../shapes"
+	"hw2/shapes"
 )
 
 func TotalArea(logger *log.Logger, figures ...interface{}) (float64, error) {

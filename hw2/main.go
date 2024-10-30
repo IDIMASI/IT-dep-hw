@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"./calculator"
-	"./shapes"
+	"hw2/calculator"
+	"hw2/shapes"
 )
 
 func main() {
